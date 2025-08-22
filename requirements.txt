@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+elevenlabs
+pydantic
+pydantic-settings
+python-docx
+requests
+groq
+python-dotenv
+tzdata
+pandas
+python-multipart
+dateparser
+python-dateutil
+openpyxl

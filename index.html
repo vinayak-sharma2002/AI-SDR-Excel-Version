@@ -1,0 +1,83 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Call Queue Excel Processor</title>
+	<style>
+		body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 0; }
+		.container { max-width: 500px; margin: 40px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+		h2 { text-align: center; }
+		.status { margin: 20px 0; text-align: center; font-size: 1.1em; }
+		.download-link { display: block; margin: 20px auto; text-align: center; }
+		input[type="file"] { display: block; margin: 20px auto; }
+		button { display: block; margin: 20px auto; padding: 10px 20px; font-size: 1em; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+		button:disabled { background: #aaa; }
+	</style>
+</head>
+<body>
+	<div class="container">
+		<h2>Call Queue Excel Processor</h2>
+		<form id="uploadForm">
+			<input type="file" id="excelFile" accept=".xlsx,.xls" required />
+			<button type="submit">Upload Excel & Start Calls</button>
+		</form>
+		<div class="status" id="statusMsg"></div>
+		<a id="downloadLink" class="download-link" style="display:none;" href="/download-excel" download>Download Resultant Excel</a>
+	</div>
+	<script>
+		const uploadForm = document.getElementById('uploadForm');
+		const excelFile = document.getElementById('excelFile');
+		const statusMsg = document.getElementById('statusMsg');
+		const downloadLink = document.getElementById('downloadLink');
+		let polling = false;
+
+		uploadForm.addEventListener('submit', async function(e) {
+			e.preventDefault();
+			if (!excelFile.files.length) return;
+			statusMsg.textContent = 'Uploading Excel and starting calls...';
+			downloadLink.style.display = 'none';
+			polling = false;
+
+			const formData = new FormData();
+			formData.append('file', excelFile.files[0]);
+
+			try {
+				const res = await fetch('/add-call', {
+					method: 'POST',
+					body: formData
+				});
+				if (res.ok) {
+					const data = await res.json();
+					statusMsg.textContent = data.message + ' Processing calls...';
+					polling = true;
+					pollExcelStatus();
+				} else {
+					statusMsg.textContent = 'Error uploading file.';
+				}
+			} catch (err) {
+				statusMsg.textContent = 'Network error.';
+			}
+		});
+
+		async function pollExcelStatus() {
+			if (!polling) return;
+			try {
+				const res = await fetch('/excel-status');
+				if (res.ok && res.headers.get('content-type').includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+					statusMsg.textContent = 'Resultant Excel file is ready!';
+					downloadLink.style.display = 'block';
+				} else {
+					statusMsg.textContent = 'Processing... File isn\'t ready yet.';
+					downloadLink.style.display = 'none';
+					setTimeout(pollExcelStatus, 5000);
+				}
+			} catch (err) {
+				statusMsg.textContent = 'Error checking file status.';
+				setTimeout(pollExcelStatus, 5000);
+			}
+		}
+	</script>
+</body>
+</html>
