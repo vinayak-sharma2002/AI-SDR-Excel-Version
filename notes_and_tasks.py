@@ -186,6 +186,7 @@ def send_meeting_invite(parsed, customer_name, customer_email):
                         'RETURN_AS_TIMEZONE_AWARE': True
                     }
                 )
+                
                 logger.info(f"[log_data] Parsed in-person meeting time (Dateparser response): {meeting_time_in_person_est}\n\n")
                 if meeting_time_in_person_est is not None:
                     meeting_time_in_person = meeting_time_in_person_est.isoformat()
