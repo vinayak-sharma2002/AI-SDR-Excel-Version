@@ -40,7 +40,6 @@ def summarize_conversation_transcript(conversation_transcript):
             "meeting_time_in_person_raw": "",
             "meeting_time_virtual_raw": ""
         }
-    
     # --- Chunking logic ---
     def chunk_text(text, chunk_size=1000, overlap=100):
         words = text.split()
