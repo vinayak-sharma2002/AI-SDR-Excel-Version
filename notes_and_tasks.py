@@ -170,80 +170,89 @@ def send_meeting_invite(parsed, customer_name, customer_email):
 
     if meeting_status is True:
         logger.info(f"[log_data] Meeting status - In-person: {meeting_status_in_person}, Virtual: {meeting_status_virtual}\n\n")
-        
+
+        # Handle in-person meeting invite
         if meeting_status_in_person is True:
+            try:
                 raw_meeting_time_in_person = parsed.get("meeting_time_in_person_raw", "")
                 logger.info(f"[log_data] Raw in-person meeting time: {raw_meeting_time_in_person}\n\n")
-                current_datetime_est_in_person = datetime.now(ZoneInfo("America/New_York"))   
+                current_datetime_est_in_person = datetime.now(ZoneInfo("America/New_York"))
                 logger.info(f"[log_data] Current datetime in EST for in-person meeting: {current_datetime_est_in_person}\n\n Now getting true meeting time from dateparser.")
-                
                 meeting_time_in_person_est = dateparser.parse(
-                        raw_meeting_time_in_person,
-                        settings={
-                            'RELATIVE_BASE': current_datetime_est_in_person,
-                            'TIMEZONE': 'America/New_York',
-                            'RETURN_AS_TIMEZONE_AWARE': True
-                        }
-                    )
-                logger.info(f"[log_data] Parsed in-person meeting time (Dateparser response): {meeting_time_in_person_est}\n\n")
-                meeting_time_in_person = meeting_time_in_person_est.isoformat()
-                logger.info(f"[log_data] In-person meeting time parsed (final meeting time being sent to meeting_invite API in ISO format): {meeting_time_in_person}\n\n")
-                # Sending the in-person meeting invite
-                logger.info(f"[log_data] In-person meeting time parsed: {meeting_time_in_person}\n\n")
-                response = requests.post(
-                    headers={"Content-Type": "application/json"},
-                    url="https://func-send-calendar-invite-tm-dev-fhdcbce9ebdpcmcg.eastus-01.azurewebsites.net/api/schedule_meeting",
-                    json={
-                        "attendee_email": customer_email,
-                        "attendee_name": customer_name,
-                        "subject": "In-person Meeting invite from Architessa",
-                        "body": """Hi, we're really grateful that you could give us some of your precious time.
-                                    We'll make sure it's worth your while.""",
-                        "start_time": meeting_time_in_person,
-                        "duration_minutes": 30,
-                        "meeting_type": "in_person"
+                    raw_meeting_time_in_person,
+                    settings={
+                        'RELATIVE_BASE': current_datetime_est_in_person,
+                        'TIMEZONE': 'America/New_York',
+                        'RETURN_AS_TIMEZONE_AWARE': True
                     }
                 )
-                response.raise_for_status()  # Raise an error for bad responses
-                logger.info("[log_data] In-person calendar invite sent successfully.\n\n")
-            
-        if meeting_status_virtual is True:
+                logger.info(f"[log_data] Parsed in-person meeting time (Dateparser response): {meeting_time_in_person_est}\n\n")
+                if meeting_time_in_person_est is not None:
+                    meeting_time_in_person = meeting_time_in_person_est.isoformat()
+                    logger.info(f"[log_data] In-person meeting time parsed (final meeting time being sent to meeting_invite API in ISO format): {meeting_time_in_person}\n\n")
+                    # Sending the in-person meeting invite
+                    logger.info(f"[log_data] In-person meeting time parsed: {meeting_time_in_person}\n\n")
+                    response = requests.post(
+                        headers={"Content-Type": "application/json"},
+                        url="https://func-send-calendar-invite-tm-dev-fhdcbce9ebdpcmcg.eastus-01.azurewebsites.net/api/schedule_meeting",
+                        json={
+                            "attendee_email": customer_email,
+                            "attendee_name": customer_name,
+                            "subject": "In-person Meeting invite from Architessa",
+                            "body": """Hi, we're really grateful that you could give us some of your precious time.
+                                        We'll make sure it's worth your while.""",
+                            "start_time": meeting_time_in_person,
+                            "duration_minutes": 30,
+                            "meeting_type": "in_person"
+                        }
+                    )
+                    response.raise_for_status()  # Raise an error for bad responses
+                    logger.info("[log_data] In-person calendar invite sent successfully.\n\n")
+                else:
+                    logger.error(f"[send_meeting_invite] Could not parse in-person meeting time: '{raw_meeting_time_in_person}'")
+            except Exception as e:
+                logger.error(f"[send_meeting_invite] Error sending in-person meeting invite: {e}")
 
-            raw_meeting_time_virtual = parsed.get("meeting_time_virtual_raw", "No virtual meeting time provided")
-            logger.info(f"[log_data] Raw virtual meeting time: {raw_meeting_time_virtual}\n\n")
-            current_datetime_est_virtual = datetime.now(ZoneInfo("America/New_York"))
-            logger.info(f"[log_data] Current datetime in EST for virtual meeting: {current_datetime_est_virtual}\n\n")
-            meeting_time_virtual_est = dateparser.parse(
+        # Handle virtual meeting invite
+        if meeting_status_virtual is True:
+            try:
+                raw_meeting_time_virtual = parsed.get("meeting_time_virtual_raw", "No virtual meeting time provided")
+                logger.info(f"[log_data] Raw virtual meeting time: {raw_meeting_time_virtual}\n\n")
+                current_datetime_est_virtual = datetime.now(ZoneInfo("America/New_York"))
+                logger.info(f"[log_data] Current datetime in EST for virtual meeting: {current_datetime_est_virtual}\n\n")
+                meeting_time_virtual_est = dateparser.parse(
                     raw_meeting_time_virtual,
                     settings={
                         'RELATIVE_BASE': current_datetime_est_virtual,
                         'TIMEZONE': 'America/New_York',
                         'RETURN_AS_TIMEZONE_AWARE': True
-                        }
-                    )
-            logger.info(f"[log_data] Parsed virtual meeting time (Dateparser response): {meeting_time_virtual_est}\n\n")
-            # Sending the virtual meeting invite
-            meeting_time_virtual = meeting_time_virtual_est.isoformat()
-            logger.info(f"[log_data] Virtual meeting time parsed (final meeting time being sent to meeting_invite API in ISO format): {meeting_time_virtual}\n\n")
-               
-               
-            response = requests.post(
-                    headers={"Content-Type": "application/json"},
-                    url="https://func-send-calendar-invite-tm-dev-fhdcbce9ebdpcmcg.eastus-01.azurewebsites.net/api/schedule_meeting",
-                    json={
-                        "attendee_email": customer_email,
-                        "attendee_name": customer_name,
-                        "subject": "Virtual Meeting invite from Architessa",
-                        "body": """Hi, we're really grateful that you could give us some of your precious time.
-                                    We'll make sure it's worth your while.""",
-                        "start_time": meeting_time_virtual,
-                        "duration_minutes": 30,
-                        "meeting_type": "virtual"
                     }
                 )
-            response.raise_for_status()  # Raise an error for bad responses
-            logger.info("[log_data] Virtual calendar invite sent successfully.\n\n")
-        
+                logger.info(f"[log_data] Parsed virtual meeting time (Dateparser response): {meeting_time_virtual_est}\n\n")
+                if meeting_time_virtual_est is not None:
+                    meeting_time_virtual = meeting_time_virtual_est.isoformat()
+                    logger.info(f"[log_data] Virtual meeting time parsed (final meeting time being sent to meeting_invite API in ISO format): {meeting_time_virtual}\n\n")
+                    response = requests.post(
+                        headers={"Content-Type": "application/json"},
+                        url="https://func-send-calendar-invite-tm-dev-fhdcbce9ebdpcmcg.eastus-01.azurewebsites.net/api/schedule_meeting",
+                        json={
+                            "attendee_email": customer_email,
+                            "attendee_name": customer_name,
+                            "subject": "Virtual Meeting invite from Architessa",
+                            "body": """Hi, we're really grateful that you could give us some of your precious time.
+                                        We'll make sure it's worth your while.""",
+                            "start_time": meeting_time_virtual,
+                            "duration_minutes": 30,
+                            "meeting_type": "virtual"
+                        }
+                    )
+                    response.raise_for_status()  # Raise an error for bad responses
+                    logger.info("[log_data] Virtual calendar invite sent successfully.\n\n")
+                else:
+                    logger.error(f"[send_meeting_invite] Could not parse virtual meeting time: '{raw_meeting_time_virtual}'")
+            except Exception as e:
+                logger.error(f"[send_meeting_invite] Error sending virtual meeting invite: {e}")
+
         else:
             logger.info("[log_data] No meeting scheduled.\n\n")
             meeting_time_in_person = ""

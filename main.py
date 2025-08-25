@@ -382,9 +382,18 @@ async def add_call(file: UploadFile = File(...)):
         df = pd.read_excel(io.BytesIO(contents))
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
+
+        # Clear customer_data table before adding new batch
+        c.execute("DELETE FROM customer_data")
+        logger.info(f"Deleted previous customer data.")
+
         added_count = 0
         for _, row in df.iterrows():
-            customer_name = (str(row.get('customer_name', '')) if row.get('customer_name', '') is not None else '').strip()
+            customer_name_raw = row.get('customer_name', '')
+            if pd.isna(customer_name_raw):
+                customer_name = None
+            else:
+                customer_name = str(customer_name_raw).strip()
             customer_id = (str(row.get('customer_id', '')) if row.get('customer_id', '') is not None else '').strip()
             # Sanitize phone_number
             phone_number_raw = row.get('phone_number', '')
