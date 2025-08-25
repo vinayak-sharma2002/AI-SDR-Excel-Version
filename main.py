@@ -4,6 +4,7 @@ import requests
 import time
 import threading
 from typing import Optional
+import re
 from datetime import datetime
 from elevenlabs import ElevenLabs
 from config import settings
@@ -62,30 +63,25 @@ TERMINAL_STATUSES = {"completed", "busy", "failed", "no-answer", "cancelled"}
 #         return None
 
 #     raw_number = str(raw_number).strip()
-#     cleaned_number = re.sub(r"[^\d+]", "", raw_number)
-#     logger.info(f"[format_and_validate_number] Cleaned number: '{cleaned_number}' from raw input: '{raw_number}'\n\n")
+    # cleaned_number = re.sub(r"[^\d+]", "", raw_number)
+    # logger.info(f"[format_and_validate_number] Cleaned number: '{cleaned_number}' from raw input: '{raw_number}'\n\n")
 
-#     region = COUNTRY_CODE_MAP.get(country.lower().strip(), "US") if country else "US"
-#     logger.info(f"[format_and_validate_number] Using region: '{region}' for number: '{cleaned_number}'\n\n")
+    # # If phone number starts with '+', assume country code is present and dial as is
+    # if cleaned_number.startswith("+"):
+    #     logger.info(f"[format_and_validate_number] Number '{cleaned_number}' already has country code. Using as is.\n\n")
+    #     return cleaned_number
 
-    # try:
-    #     parsed = phonenumbers.parse(cleaned_number, None if cleaned_number.startswith("+") else region)
-
-    #     if not phonenumbers.is_possible_number(parsed):
-    #         logger.warning(f"[format_and_validate_number] Number '{cleaned_number}' is not possible.\n\n")
-    #         return None
-
-    #     if not phonenumbers.is_valid_number(parsed):
-    #         logger.warning(f"[format_and_validate_number] Number '{cleaned_number}' is not valid.\n\n")
-    #         return None
-
-    #     formatted = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
-    #     logger.info(f"[format_and_validate_number] Successfully formatted to '{formatted}'\n\n")
-    #     return formatted
-
-    # except phonenumbers.NumberParseException as e:
-    #     logger.error(f"[format_and_validate_number] Failed to parse number '{cleaned_number}' (region: '{region}'): {e}\n\n")
-    #     return None
+    # # If not, prepend country code from country_code column (no '+' enforced)
+    # country_code = None
+    # if country:
+    #     country_code = str(country).strip()
+    #     # Remove any non-digit characters
+    #     country_code = re.sub(r"\D", "", country_code)
+    # else:
+    #     country_code = "1"  # Default to US if not provided
+    # final_number = country_code + cleaned_number
+    # logger.info(f"[format_and_validate_number] Prepending country code. Final number: '{final_number}'\n\n")
+    # return final_number
 
 def poll_twilio_status(call_sid, call_id, customer_id, customer_name, max_wait=150, poll_interval=5):
     """
@@ -152,6 +148,7 @@ def initiate_call(
     country_code: Optional[str] = None
 ) -> bool:
     logger.info(f"[initiate_call] country code: {country_code}")
+    logger.info(f"[initiate_call] phone number: {phone_number}")
     try:
         logger.info(f"[initiate_call] Starting outbound call for {lead_name} (SF ID: {customer_id})\n\n")
         phone_number_clean = (str(phone_number) if phone_number is not None else '').strip()
@@ -163,9 +160,10 @@ def initiate_call(
             except Exception:
                 country_code_clean = str(country_code).strip()
         else:
-            country_code_clean = '+1'  # Default to US country code
-        # Normalize phone number
+            country_code_clean = '1'  # Default to US country code
+
         phone_number_final = country_code_clean + phone_number_clean
+        
         logger.info(f"[initiate_call] Using phone number: {phone_number_final}\n\n")
         logger.info(f"[{correlation_id}] Initiating outbound call to {phone_number_final} with email: {email} being sent to initiate call function.\n\n")
         result = client.conversational_ai.twilio.outbound_call(
