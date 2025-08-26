@@ -288,7 +288,7 @@ DB_PATH = "queue.db"
 
 def generate_initial_message(lead_data: str) -> str:
     import time
-    client = Groq(api_key="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")
+    client = Groq(api_key=settings.GROQ_API_KEY)
 
     # Prepare the prompt that instructs the LLM what to do
     system_prompt = (
