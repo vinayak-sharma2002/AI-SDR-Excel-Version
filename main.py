@@ -348,7 +348,6 @@ def process_queue_single_run():
             threading.Thread(target=process_queue_single_run, daemon=True).start()
             return
 
-        # update_call_details(call_id, formatted_phone, lead_name, details)
 
         correlation_id = str(uuid.uuid4())
         try:
@@ -378,7 +377,6 @@ def process_queue_single_run():
         if 'call_id' in locals():
             pop_call_by_id(call_id)
 
-# --- Endpoints ---
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
@@ -391,7 +389,6 @@ async def root(request: Request):
 @app.post("/login")
 async def login(credentials: HTTPBasicCredentials = Depends(security)):
     """Login endpoint that validates email format"""
-    # Validate email format
     if not validate_email(credentials.username):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

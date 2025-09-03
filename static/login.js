@@ -3,10 +3,8 @@ function login() {
   let pass = document.getElementById("password").value.trim();
   let error = document.getElementById("error-msg");
 
-  // Regex for validating email format
   let emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}$/;
 
-  // Client-side email validation
   if (!emailPattern.test(user)) {
     error.textContent = "Please enter a valid email address.";
     return;
@@ -17,7 +15,6 @@ function login() {
     return;
   }
 
-  // Rest of your existing login code...
   const authHeader = 'Basic ' + btoa(user + ':' + pass);
   
   fetch('/login', {
