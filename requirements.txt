@@ -13,3 +13,4 @@ python-multipart
 dateparser
 python-dateutil
 openpyxl
+Jinja2

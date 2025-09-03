@@ -3,6 +3,7 @@ import sqlite3
 import requests
 import time
 import threading
+from fastapi import status
 from typing import Optional
 import re
 from datetime import datetime
@@ -11,16 +12,18 @@ from config import settings
 from requests.auth import HTTPBasicAuth
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Response
 from logger_config import logger
-from datetime import datetime
 import pandas as pd
 import io
 import math
 import os
-
-from fastapi.responses import FileResponse
-
-
-                    
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.templating import Jinja2Templates
+from fastapi import Depends, HTTPException, status, Cookie
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import secrets
+from typing import Optional 
+from fastapi.responses import JSONResponse       
 from helperfuncs import (
     CallRequest,
     QueueUpdateRequest,
@@ -39,8 +42,21 @@ from notes_and_tasks import (
     send_meeting_invite
 )
 
-# FastAPI app setup
 app = FastAPI(title="Call Queue")
+
+security = HTTPBasic()
+active_sessions = {}
+
+VALID_CREDENTIALS = {
+    "admin@gmail.com": "admin123",
+    "user@gmail.com": "user123", 
+    "agent@gmail.com": "agent123",
+    "manager@gmail.com": "manager123"
+}
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
 
 # ElevenLabs client setup
 client = ElevenLabs(api_key=settings.ELEVENLABS_API)
@@ -82,6 +98,31 @@ TERMINAL_STATUSES = {"completed", "busy", "failed", "no-answer", "cancelled"}
     # final_number = country_code + cleaned_number
     # logger.info(f"[format_and_validate_number] Prepending country code. Final number: '{final_number}'\n\n")
     # return final_number
+
+def verify_credentials(email: str, password: str):
+    """Verify if credentials are valid and email is properly formatted"""
+    if not validate_email(email):
+        return False
+    return VALID_CREDENTIALS.get(email) == password
+
+def create_session_token():
+    """Create a new session token"""
+    return secrets.token_urlsafe(32)
+
+def get_current_user(session_token: Optional[str] = Cookie(None)):
+    """Get current user from session token"""
+    if not session_token or session_token not in active_sessions:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return active_sessions[session_token]
+
+def validate_email(email: str) -> bool:
+    """Validate email format"""
+    email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+    return bool(email_pattern.match(email))
 
 def poll_twilio_status(call_sid, call_id, customer_id, customer_name, max_wait=150, poll_interval=5):
     """
@@ -339,17 +380,77 @@ def process_queue_single_run():
 
 # --- Endpoints ---
 
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    logger.info("[root API] / endpoint called. Returning HTML dashboard.\n\n")
+    return templates.TemplateResponse(
+        "Index.html",
+        {"request": request, "message": "Welcome to the Call Queue API 🚀"}
+    )
+
+@app.post("/login")
+async def login(credentials: HTTPBasicCredentials = Depends(security)):
+    """Login endpoint that validates email format"""
+    # Validate email format
+    if not validate_email(credentials.username):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email format. Please use a valid email address.",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    
+    if not verify_credentials(credentials.username, credentials.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    
+    # Rest of your existing login code remains the same...
+    session_token = create_session_token()
+    active_sessions[session_token] = credentials.username
+    
+    response = JSONResponse(content={"message": "Login successful"})
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        max_age=3600,
+        samesite="lax"
+    )
+    return response
+
+@app.post("/logout")
+async def logout(session_token: Optional[str] = Cookie(None)):
+    """Logout endpoint that clears session"""
+    if session_token and session_token in active_sessions:
+        del active_sessions[session_token]
+    
+    response = JSONResponse(content={"message": "Logout successful"})
+    response.delete_cookie(key="session_token")
+    return response
+
+@app.get("/upload", response_class=HTMLResponse)
+async def upload_page(request: Request, username: str = Depends(get_current_user)):
+    logger.info(f"[upload_page API] User {username} accessing upload page\n\n")
+    return templates.TemplateResponse("upload.html", {"request": request})
+
+@app.get("/auth-check")
+async def auth_check(username: str = Depends(get_current_user)):
+    return {"authenticated": True, "username": username}
+
 # Endpoint to download the resultant Excel file
 @app.get("/download-excel")
-def download_excel():
-    """
-    Delivers the resultant Excel file as a downloadable response.
-    """
+def download_excel(username: str = Depends(get_current_user)):
+
+    logger.info(f"[download-excel] User {username} downloading Excel file\n\n")
+    
     import os
     excel_path = os.path.join(os.getcwd(), "resultant_excel.xlsx")
     if not os.path.exists(excel_path):
         logger.error(f"[download_excel] File not found: {excel_path}")
         raise HTTPException(status_code=404, detail="Excel file not found.")
+    
     return FileResponse(
         path=excel_path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -357,10 +458,12 @@ def download_excel():
     )
 
 @app.get("/excel-status")
-def excel_status():
+def excel_status(username: str = Depends(get_current_user)):
     """
     Returns the resultant Excel file if it exists, else a 'file isn't ready yet' message.
     """
+    logger.info(f"[excel-status] User {username} checking Excel status\n\n")
+    
     excel_path = os.path.join(os.getcwd(), "resultant_excel.xlsx")
     if os.path.exists(excel_path):
         return FileResponse(
@@ -373,8 +476,8 @@ def excel_status():
     
 
 @app.post("/add-call")
-async def add_call(file: UploadFile = File(...)):
-    logger.info("[add_call API] POST /add-call called for Excel upload.\n\n")
+async def add_call(file: UploadFile = File(...), username: str = Depends(get_current_user)):
+    logger.info(f"[add_call API] User {username} uploading Excel file\n\n")
     try:
         contents = await file.read()
         df = pd.read_excel(io.BytesIO(contents))
@@ -700,12 +803,6 @@ def delete_customer_data_queue():
     except Exception as e:
         logger.error("Error in /delete-customer-data-queue: %s\n\n", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to delete all customer data.")
-
-
-@app.get("/")
-def root():
-    logger.info("[root API] / endpoint called. Welcome message returned.\n\n")
-    return {"message": "Welcome to the Call Queue API. Use /docs for API documentation."}
 
 def cleanup_stuck_calls():
     logger.info("[cleanup_stuck_calls] Background thread started. Periodically cleaning up stuck calls.\n\n")
