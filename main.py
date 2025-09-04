@@ -10,7 +10,7 @@ from datetime import datetime
 from elevenlabs import ElevenLabs
 from config import settings
 from requests.auth import HTTPBasicAuth
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Response
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Response, Header
 from logger_config import logger
 import pandas as pd
 import io
@@ -439,10 +439,11 @@ async def auth_check(username: str = Depends(get_current_user)):
 # Endpoint to download the resultant Excel file
 @app.get("/download-excel")
 def download_excel(username: str = Depends(get_current_user)):
-
+    """
+    Delivers the resultant Excel file as a downloadable response.
+    """
     logger.info(f"[download-excel] User {username} downloading Excel file\n\n")
     
-    import os
     excel_path = os.path.join(os.getcwd(), "resultant_excel.xlsx")
     if not os.path.exists(excel_path):
         logger.error(f"[download_excel] File not found: {excel_path}")
@@ -453,6 +454,7 @@ def download_excel(username: str = Depends(get_current_user)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename="resultant_excel.xlsx"
     )
+
 
 @app.get("/excel-status")
 def excel_status(username: str = Depends(get_current_user)):
@@ -470,6 +472,7 @@ def excel_status(username: str = Depends(get_current_user)):
         )
     else:
         return {"message": "File isn't ready yet."}
+
     
 
 @app.post("/add-call")

@@ -82,8 +82,10 @@ async function downloadAll() {
         let filename = "resultant_excel.xlsx";
         
         if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-            if (filenameMatch && filenameMatch[1]) filename = filenameMatch[1];
+            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1].replace(/"/g, '');
+            }
         }
 
         const blob = await response.blob();
@@ -103,6 +105,7 @@ async function downloadAll() {
         alert("Error downloading file! Check console for details.");
     }
 }
+
 
 async function logout() {
     try {
