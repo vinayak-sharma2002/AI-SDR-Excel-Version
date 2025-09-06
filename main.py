@@ -3,7 +3,6 @@ import sqlite3
 import requests
 import time
 import threading
-from fastapi import status
 from typing import Optional
 import re
 from datetime import datetime
@@ -19,7 +18,7 @@ import os
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
-from fastapi import Depends, HTTPException, status, Cookie
+from fastapi import Depends, HTTPException, Cookie, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import secrets
 from typing import Optional 
@@ -443,12 +442,16 @@ def download_excel(username: str = Depends(get_current_user)):
     Delivers the resultant Excel file as a downloadable response.
     """
     logger.info(f"[download-excel] User {username} downloading Excel file\n\n")
-    
+    # Always export the latest customer_data to Excel before serving
     excel_path = os.path.join(os.getcwd(), "resultant_excel.xlsx")
+    try:
+        export_customer_data_to_excel(db_path=DB_PATH, excel_path=excel_path)
+    except Exception as e:
+        logger.error(f"[download_excel] Error exporting Excel: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate Excel file.")
     if not os.path.exists(excel_path):
         logger.error(f"[download_excel] File not found: {excel_path}")
         raise HTTPException(status_code=404, detail="Excel file not found.")
-    
     return FileResponse(
         path=excel_path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -519,12 +522,9 @@ async def add_call(file: UploadFile = File(...), username: str = Depends(get_cur
             tasks = (str(row.get('tasks', '')) if row.get('tasks', '') is not None else '').strip()
             to_call = (str(row.get('to_call', '')) if row.get('to_call', '') is not None else '').strip()
             industry = (str(row.get('industry', '')) if row.get('industry', '') is not None else '').strip()
-            logger.info(f"industry: {industry}")
             company_name = (str(row.get('company_name', '')) if row.get('company_name', '') is not None else '').strip()
-            logger.info(f"company_name: {company_name}")
             location = (str(row.get('location', '')) if row.get('location', '') is not None else '').strip()
-            logger.info(f"location: {location}")
-
+            logger.info(f"Processing row: customer_id={customer_id}, customer_name={customer_name}, phone_number={phone_number}, to_call={to_call}")
             if to_call.lower() == "yes":
                 # Insert into call_queue first to get call_id
                 if customer_name and phone_number:
@@ -658,7 +658,7 @@ async def call_ended(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error.")
 
 @app.get("/status")
-def status():
+def queue_status():
     logger.info("[status API] /status endpoint called. Returns current queue status.\n\n")
     try:
         with sqlite3.connect(DB_PATH) as conn:
@@ -685,7 +685,7 @@ def status():
         raise HTTPException(status_code=500, detail="Failed to fetch queue status.")
 
 @app.get("/customer-data-status")
-def status():
+def customer_data_status():
     logger.info("[status API] /customer-data-status endpoint called. Returns current customer data status.\n\n")
     try:
         with sqlite3.connect(DB_PATH) as conn:
@@ -707,7 +707,7 @@ def status():
             ]
         return {"queue": queue}
     except Exception as e:
-        logger.error("Error in /status: %s\n\n", e, exc_info=True)
+        logger.error("Error in /customer-data-status: %s\n\n", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch queue status.")
 
 @app.post("/update-queue")

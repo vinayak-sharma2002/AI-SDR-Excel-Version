@@ -232,8 +232,6 @@ def export_customer_data_to_excel(db_path="queue.db", excel_path="resultant_exce
     conn = sqlite3.connect(db_path)
     df = pd.read_sql_query("SELECT * FROM customer_data", conn)
     df.to_excel(excel_path, index=False)
-    # Clear the customer_data table after export
-    conn.execute("DELETE FROM customer_data")
     conn.commit()
     conn.close()
 
