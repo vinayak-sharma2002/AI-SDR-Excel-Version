@@ -431,6 +431,17 @@ async def upload_page(request: Request, username: str = Depends(get_current_user
     logger.info(f"[upload_page API] User {username} accessing upload page\n\n")
     return templates.TemplateResponse("upload.html", {"request": request})
 
+@app.post("/upload-file")
+async def upload_file(file: UploadFile = File(...), username: str = Depends(get_current_user)):
+    TEMP_FILE_PATH = "temp_upload.xlsx"
+    try:
+        with open(TEMP_FILE_PATH, "wb") as buffer:
+            contents = await file.read()
+            buffer.write(contents)
+        return JSONResponse(content={"message": "File uploaded successfully"})
+    except Exception as e:
+        return JSONResponse(content={"message": f"Upload failed: {str(e)}"}, status_code=500)
+    
 @app.get("/auth-check")
 async def auth_check(username: str = Depends(get_current_user)):
     return {"authenticated": True, "username": username}
@@ -479,11 +490,18 @@ def excel_status(username: str = Depends(get_current_user)):
     
 
 @app.post("/add-call")
-async def add_call(file: UploadFile = File(...), username: str = Depends(get_current_user)):
-    logger.info(f"[add_call API] User {username} uploading Excel file\n\n")
+async def add_call(username: str = Depends(get_current_user)):
+    """
+    Processes the previously uploaded Excel file (temp_upload.xlsx) and adds calls to the queue.
+    """
+    logger.info(f"[add_call API] User {username} processing previously uploaded Excel file\n\n")
+    TEMP_FILE_PATH = "temp_upload.xlsx"
     try:
-        contents = await file.read()
-        df = pd.read_excel(io.BytesIO(contents))
+        if not os.path.exists(TEMP_FILE_PATH):
+            logger.error("No file uploaded yet. temp_upload.xlsx not found.")
+            raise HTTPException(status_code=400, detail="No file uploaded yet. Please upload an Excel file first.")
+
+        df = pd.read_excel(TEMP_FILE_PATH)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
 

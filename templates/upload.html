@@ -3,24 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <title>Upload File Page</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"/>
   <link rel="stylesheet" href="/static/Style.css">
-  <script src="/static/upload.js"></script>
-
 </head>
 <body>
-  <div class="login-container">
-    <div class="login-box">
-      <h2>Upload File</h2>
-
-      <input type="file" id="fileInput" multiple onchange="uploadFile()">
-
-      <div id="fileDetails"></div>
-      
-      <button type="button" id="downloadBtn" onclick="downloadAll()">Download All</button>
-
-      <button type="button" class="logout-btn" onclick="logout()">Logout</button>
+    <div class="rs_sdr_pagewrapper">
+        <div class="container">
+            <div class="rs_callqueue_conn">
+                <div class="rs-callqueue-header">
+                    <span><i class="fa-solid fa-phone"></i></span>
+                    <h2>Call Queue Excel Processor</h2>
+                    <div class="logout-wrap">
+                        <button class="btn rs-btn" onclick="logout()"><i class="fas fa-sign-out"></i></button>
+                    </div>
+                </div>
+                <div class="file-upload-wrapper">
+                    <h3>Upload Your Excel File</h3>
+                    <label class="custom-file-upload">
+                        <input type="file" id="fileUpload" />
+                        Choose Excel File
+                     </label>
+                    <div class="uploaded-files" id="uploadedFiles"></div>
+                    <div id="fileDetails"></div>
+                </div>
+                <div class="call-result-wrap">
+                    <button class="rs-btn callBtn" disabled>Start Call Processing</button>
+                    <button class="rs-btn download-sheet" onclick="downloadAll()">Download Result Sheet</button>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
+
+    <!-- Scripts should go here -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="/static/upload.js"></script>
 </body>
 </html>
- 
